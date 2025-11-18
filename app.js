@@ -1,0 +1,237 @@
+// Inventario Fácil - app.js (persistencia con localStorage)
+// Key para localStorage
+const STORAGE_KEY = 'inventario_facil_v1';
+
+// Selectores DOM
+const selectors = {
+  formSection: document.getElementById('form-section'),
+  itemForm: document.getElementById('item-form'),
+  toggleFormBtn: document.getElementById('toggle-form'),
+  resetBtn: document.getElementById('reset-btn'),
+  inventoryList: document.getElementById('inventory-list'),
+  search: document.getElementById('search'),
+  filterCategory: document.getElementById('filter-category'),
+  totalItems: document.getElementById('total-items'),
+  totalValue: document.getElementById('total-value'),
+  itemId: document.getElementById('item-id')
+};
+
+// Cargar inventario desde localStorage o semilla inicial
+function loadInventory(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (err) {
+    console.warn('Error leyendo localStorage, se usa semilla.', err);
+  }
+  // Semilla inicial si no hay datos en storage
+  return [
+    { id: 1, name: "Auriculares Bluetooth", category: "Electrónica", quantity: 12, price: 499.00, supplierEmail: "ventas@ejemplo.com", dateIn: "2025-11-01" },
+    { id: 2, name: "Camiseta algodón", category: "Ropa", quantity: 35, price: 199.99, supplierEmail: "", dateIn: "2025-10-20" }
+  ];
+}
+
+// Guardar inventario en localStorage
+function saveInventory(list){
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  } catch (err) {
+    console.error('No se pudo guardar en localStorage.', err);
+  }
+}
+
+// Estado en memoria (se sincroniza con localStorage)
+let inventory = loadInventory();
+
+// Render inicial
+renderInventory(inventory);
+
+// Eventos UI
+selectors.toggleFormBtn.addEventListener('click', () => {
+  selectors.formSection.scrollIntoView({behavior:'smooth'});
+  highlightForm();
+});
+
+selectors.resetBtn.addEventListener('click', resetForm);
+selectors.search.addEventListener('input', applyFilters);
+selectors.filterCategory.addEventListener('change', applyFilters);
+
+selectors.itemForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const name = form.name.value.trim();
+  const category = form.category.value;
+  const quantity = Number(form.quantity.value);
+  const price = Number(form.price.value);
+  const dateIn = form.dateIn.value;
+  if (!name || !category || Number.isNaN(quantity) || Number.isNaN(price) || !dateIn) {
+    alert('Por favor complete los campos obligatorios correctamente.');
+    return;
+  }
+  if (quantity < 0 || price < 0) {
+    alert('Cantidad y precio deben ser valores no negativos.');
+    return;
+  }
+
+  const idVal = selectors.itemId.value;
+  if (idVal) {
+    // Editar
+    const id = Number(idVal);
+    const idx = inventory.findIndex(i => i.id === id);
+    if (idx > -1) {
+      inventory[idx] = {
+        id,
+        name, category, quantity, price,
+        supplierEmail: form.supplierEmail.value.trim(),
+        dateIn
+      };
+      saveInventory(inventory);
+      showToast('Ítem actualizado.');
+    }
+  } else {
+    // Crear nuevo
+    const newId = inventory.length ? Math.max(...inventory.map(i => i.id)) + 1 : 1;
+    inventory.push({
+      id: newId,
+      name, category, quantity, price,
+      supplierEmail: form.supplierEmail.value.trim(),
+      dateIn
+    });
+    saveInventory(inventory);
+    showToast('Ítem agregado.');
+  }
+  resetForm();
+  renderInventory(applyCurrentFiltersTo(inventory));
+});
+
+// Resetea formulario
+function resetForm(){
+  selectors.itemForm.reset();
+  selectors.itemId.value = '';
+  selectors.itemForm.querySelectorAll('input,select').forEach(el => el.blur());
+}
+
+// Render de la lista con datos proporcionados
+function renderInventory(list){
+  selectors.inventoryList.innerHTML = '';
+  if (!list.length) {
+    const li = document.createElement('li');
+    li.className = 'inventory-item';
+    li.textContent = 'No hay ítems en el inventario.';
+    selectors.inventoryList.appendChild(li);
+  } else {
+    list.forEach(item => {
+      const li = document.createElement('li');
+      li.className = 'inventory-item';
+      li.innerHTML = `
+        <div class="item-left">
+          <div class="item-meta">
+            <div class="item-name">${escapeHtml(item.name)}</div>
+            <div class="item-sub">${escapeHtml(item.category)} · Entrada: ${escapeHtml(item.dateIn)}</div>
+          </div>
+        </div>
+        <div class="item-right">
+          <div class="badge">${item.quantity} uds</div>
+          <div class="item-sub">$${formatNumber(item.price)}</div>
+          <button class="small-btn" data-action="edit" data-id="${item.id}">Editar</button>
+          <button class="small-btn" data-action="delete" data-id="${item.id}">Eliminar</button>
+        </div>
+      `;
+      selectors.inventoryList.appendChild(li);
+    });
+  }
+  updateSummary(list);
+  selectors.inventoryList.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', handleListAction);
+  });
+}
+
+// Maneja acciones de la lista (editar/eliminar)
+function handleListAction(e){
+  const btn = e.currentTarget;
+  const action = btn.dataset.action;
+  const id = Number(btn.dataset.id);
+  if (action === 'edit') {
+    populateFormForEdit(id);
+    selectors.formSection.scrollIntoView({behavior:'smooth'});
+    highlightForm();
+  } else if (action === 'delete') {
+    if (confirm('¿Eliminar este ítem? Esta acción no se puede deshacer.')) {
+      inventory = inventory.filter(i => i.id !== id);
+      saveInventory(inventory);
+      renderInventory(applyCurrentFiltersTo(inventory));
+      showToast('Ítem eliminado.');
+    }
+  }
+}
+
+// Llena formulario para editar
+function populateFormForEdit(id){
+  const item = inventory.find(i => i.id === id);
+  if (!item) return;
+  selectors.itemId.value = item.id;
+  selectors.itemForm.name.value = item.name;
+  selectors.itemForm.category.value = item.category;
+  selectors.itemForm.quantity.value = item.quantity;
+  selectors.itemForm.price.value = item.price;
+  selectors.itemForm.supplierEmail.value = item.supplierEmail || '';
+  selectors.itemForm.dateIn.value = item.dateIn;
+}
+
+// Filtros
+function applyFilters(){
+  const q = selectors.search.value.trim().toLowerCase();
+  const cat = selectors.filterCategory.value;
+  const filtered = inventory.filter(i => {
+    const matchesQ = i.name.toLowerCase().includes(q) || (i.category && i.category.toLowerCase().includes(q));
+    const matchesCat = !cat || i.category === cat;
+    return matchesQ && matchesCat;
+  });
+  renderInventory(filtered);
+}
+
+function applyCurrentFiltersTo(list){
+  const q = selectors.search.value.trim().toLowerCase();
+  const cat = selectors.filterCategory.value;
+  return list.filter(i => {
+    const matchesQ = i.name.toLowerCase().includes(q) || (i.category && i.category.toLowerCase().includes(q));
+    const matchesCat = !cat || i.category === cat;
+    return matchesQ && matchesCat;
+  });
+}
+
+// Resumen
+function updateSummary(list){
+  const totalItems = list.reduce((s, it) => s + it.quantity, 0);
+  const totalValue = list.reduce((s, it) => s + (it.quantity * it.price), 0);
+  selectors.totalItems.textContent = `${totalItems} uds`;
+  selectors.totalValue.textContent = `Valor total: $${formatNumber(totalValue)}`;
+}
+
+// Pequeño efecto visual al abrir formulario
+function highlightForm(){
+  selectors.formSection.style.transition = 'box-shadow 200ms ease';
+  selectors.formSection.style.boxShadow = '0 4px 18px rgba(11,92,255,0.18)';
+  setTimeout(() => selectors.formSection.style.boxShadow = '', 800);
+}
+
+// Mensajes simples (se puede mejorar con UI de toast)
+function showToast(msg){
+  console.log(msg);
+}
+
+// Helpers
+function formatNumber(n){
+  return Number(n).toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function escapeHtml(text){
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Sincronización inicial con posibles filtros actuales
+renderInventory(applyCurrentFiltersTo(inventory));
