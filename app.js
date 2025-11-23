@@ -1,267 +1,259 @@
-// Inventario Fácil - app.js (persistencia con localStorage)
-// Key para localStorage
+// Inventario - app.js (Versión Final Optimizada y Corregida)
 const STORAGE_KEY = 'inventario_facil_v1';
 
-// Selectores DOM
-const selectors = {
+// Selectores de elementos del DOM
+const domSelectors = {
   formSection: document.getElementById('form-section'),
   itemForm: document.getElementById('item-form'),
-  toggleFormBtn: document.getElementById('toggle-form'),
   resetBtn: document.getElementById('reset-btn'),
-  inventoryList: document.getElementById('inventory-list'),
-  search: document.getElementById('search'),
-  filterCategory: document.getElementById('filter-category'),
-  totalItems: document.getElementById('total-items'),
-  totalValue: document.getElementById('total-value'),
-  itemId: document.getElementById('item-id')
+  inventoryListElement: document.getElementById('inventory-list'),
+  searchInput: document.getElementById('search'),
+  categoryFilter: document.getElementById('filter-category'),
+  totalItemsLabel: document.getElementById('total-items'),
+  totalValueLabel: document.getElementById('total-value'),
+  itemIdInput: document.getElementById('item-id'),
+  inputs: {
+    name: document.getElementById('name'),
+    category: document.getElementById('category'),
+    quantity: document.getElementById('quantity'),
+    price: document.getElementById('price'),
+    supplierEmail: document.getElementById('supplierEmail'),
+    dateIn: document.getElementById('dateIn')
+  }
 };
 
-// Cargar inventario desde localStorage o semilla inicial
-function loadInventory() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
-    }
-  } catch (err) {
-    console.warn('Error leyendo localStorage, se usa semilla.', err);
-  }
-  // Semilla inicial si no hay datos en storage
-  return [
-    { id: 1, name: "Auriculares Bluetooth", category: "Electrónica", quantity: 12, price: 499.00, supplierEmail: "ventas@ejemplo.com", dateIn: "2025-11-01" },
-
-    { id: 2, name: "Camiseta de algodón", category: "Ropa", quantity: 35, price: 199.99, supplierEmail: "proveedor@moda.com", dateIn: "2025-10-20" },
-
-    { id: 3, name: "Mouse inalámbrico", category: "Electrónica", quantity: 20, price: 289.50, supplierEmail: "tech@distribuidor.com", dateIn: "2025-10-15" },
-
-    { id: 4, name: "Teclado mecánico RGB", category: "Electrónica", quantity: 8, price: 1399.00, supplierEmail: "contacto@hardwaremx.com", dateIn: "2025-10-10" },
-
-    { id: 5, name: "Pants deportivos", category: "Ropa", quantity: 18, price: 350.00, supplierEmail: "ventas@ropaactiva.com", dateIn: "2025-09-30" },
-
-    { id: 6, name: "Botella térmica 750ml", category: "Hogar", quantity: 42, price: 159.00, supplierEmail: "", dateIn: "2025-09-25" },
-
-    { id: 7, name: "Silla ergonómica", category: "Oficina", quantity: 5, price: 1899.99, supplierEmail: "oficinas@comfort.com", dateIn: "2025-09-18" },
-
-    { id: 8, name: "Cargador USB-C 30W", category: "Electrónica", quantity: 30, price: 249.00, supplierEmail: "power@techsupplier.com", dateIn: "2025-09-10" },
-
-    { id: 9, name: "Zapatillas running", category: "Ropa", quantity: 16, price: 899.00, supplierEmail: "ventas@deportivostore.com", dateIn: "2025-09-05" },
-
-    { id: 10, name: "Velas aromáticas", category: "Hogar", quantity: 25, price: 129.90, supplierEmail: "", dateIn: "2025-08-30" },
-
-    { id: 11, name: "Cuaderno profesional 100 hojas", category: "Oficina", quantity: 40, price: 59.50, supplierEmail: "papeleria@mx.com", dateIn: "2025-08-25" },
-
-    { id: 12, name: "Sudadera con capucha", category: "Ropa", quantity: 22, price: 499.00, supplierEmail: "proveedor@moda.com", dateIn: "2025-08-15" },
-
-    { id: 13, name: "Lámpara LED escritorio", category: "Hogar", quantity: 10, price: 329.00, supplierEmail: "iluminacion@hogar.com", dateIn: "2025-08-10" },
-
-    { id: 14, name: "Paquete de plumas negras (12 pzas)", category: "Oficina", quantity: 60, price: 89.00, supplierEmail: "", dateIn: "2025-07-28" },
-
-    { id: 15, name: "Power Bank 10,000 mAh", category: "Electrónica", quantity: 14, price: 699.00, supplierEmail: "ventas@techplus.com", dateIn: "2025-07-20" }
-  ];
-
-}
-
-// Guardar inventario en localStorage
-function saveInventory(list) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-  } catch (err) {
-    console.error('No se pudo guardar en localStorage.', err);
-  }
-}
-
-// Estado en memoria (se sincroniza con localStorage)
-let inventory = loadInventory();
-
-// Render inicial
-renderInventory(inventory);
-
-// Eventos UI
-if (selectors.toggleFormBtn) {
-  selectors.toggleFormBtn.addEventListener('click', () => {
-    selectors.formSection.scrollIntoView({ behavior: 'smooth' });
-    highlightForm();
-  });
-}
-
-selectors.resetBtn.addEventListener('click', resetForm);
-selectors.search.addEventListener('input', applyFilters);
-selectors.filterCategory.addEventListener('change', applyFilters);
-
-selectors.itemForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const form = e.target;
-  const name = form.name.value.trim();
-  const category = form.category.value;
-  const quantity = Number(form.quantity.value);
-  const price = Number(form.price.value);
-  const dateIn = form.dateIn.value;
-  if (!name || !category || Number.isNaN(quantity) || Number.isNaN(price) || !dateIn) {
-    alert('Por favor complete los campos obligatorios correctamente.');
-    return;
-  }
-  if (quantity < 0 || price < 0) {
-    alert('Cantidad y precio deben ser valores no negativos.');
-    return;
-  }
-
-  const idVal = selectors.itemId.value;
-  if (idVal) {
-    // Editar
-    const id = Number(idVal);
-    const idx = inventory.findIndex(i => i.id === id);
-    if (idx > -1) {
-      inventory[idx] = {
-        id,
-        name, category, quantity, price,
-        supplierEmail: form.supplierEmail.value.trim(),
-        dateIn
-      };
-      saveInventory(inventory);
-      showToast('Ítem actualizado.');
-    }
-  } else {
-    // Crear nuevo
-    const newId = inventory.length ? Math.max(...inventory.map(i => i.id)) + 1 : 1;
-    inventory.push({
-      id: newId,
-      name, category, quantity, price,
-      supplierEmail: form.supplierEmail.value.trim(),
-      dateIn
-    });
-    saveInventory(inventory);
-    showToast('Ítem agregado.');
-  }
-  resetForm();
-  renderInventory(applyCurrentFiltersTo(inventory));
+// Formateador de moneda MXN
+const mxnCurrencyFormatter = new Intl.NumberFormat('es-MX', {
+  style: 'currency', currency: 'MXN', minimumFractionDigits: 2
 });
 
-// Resetea formulario
-function resetForm() {
-  selectors.itemForm.reset();
-  selectors.itemId.value = '';
-  selectors.itemForm.querySelectorAll('input,select').forEach(el => el.blur());
+// Estado inicial del inventario
+let inventoryList = loadInventory();
+
+// Carga el inventario desde localStorage o retorna semilla inicial
+function loadInventory() {
+  try {
+    const storedData = localStorage.getItem(STORAGE_KEY);
+    if (storedData) return JSON.parse(storedData);
+  } catch (error) { 
+    console.error(error); 
+  }
+  return getInitialSeed();
 }
 
-// Render de la lista con datos proporcionados
-function renderInventory(list) {
-  selectors.inventoryList.innerHTML = '';
-  if (!list.length) {
-    const li = document.createElement('li');
-    li.className = 'inventory-item';
-    li.textContent = 'No hay ítems en el inventario.';
-    selectors.inventoryList.appendChild(li);
+// Guarda el inventario en localStorage
+function saveInventory(listToSave) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(listToSave));
+}
+
+// Renderiza la lista de inventario filtrada en el DOM
+function renderInventory() {
+  const filteredInventory = getFilteredInventory();
+  const fragment = document.createDocumentFragment(); 
+  domSelectors.inventoryListElement.innerHTML = '';
+
+  if (filteredInventory.length === 0) {
+    const listItem = document.createElement('li');
+    listItem.className = 'inventory-item';
+    listItem.style.justifyContent = 'center';
+    listItem.style.color = '#6b7280';
+    listItem.textContent = 'No se encontraron ítems.';
+    fragment.appendChild(listItem);
   } else {
-    list.forEach(item => {
-      const li = document.createElement('li');
-      li.className = 'inventory-item';
-      li.innerHTML = `
+    filteredInventory.forEach(inventoryItem => {
+      const listItem = document.createElement('li');
+      listItem.className = 'inventory-item';
+      listItem.innerHTML = `
         <div class="item-left">
           <div class="item-meta">
-            <div class="item-name">${escapeHtml(item.name)}</div>
-            <div class="item-sub">${escapeHtml(item.category)} · Entrada: ${escapeHtml(item.dateIn)}</div>
+            <div class="item-name">${escapeHtml(inventoryItem.name)}</div>
+            <div class="item-sub">${escapeHtml(inventoryItem.category)} · ${inventoryItem.dateIn}</div>
           </div>
         </div>
         <div class="item-right">
-          <div class="badge">${item.quantity} MXM</div>
-          <div class="item-sub">$${formatNumber(item.price)}</div>
-          <button class="small-btn" data-action="edit" data-id="${item.id}">Editar</button>
-          <button class="small-btn" data-action="delete" data-id="${item.id}">Eliminar</button>
+          <div class="badge">x${inventoryItem.quantity}</div>
+          <div class="item-sub" style="font-weight:500">${mxnCurrencyFormatter.format(inventoryItem.price)}</div>
+          <button class="small-btn" data-action="edit" data-id="${inventoryItem.id}">Editar</button>
+          <button class="small-btn" data-action="delete" data-id="${inventoryItem.id}">Eliminar</button>
         </div>
       `;
-      selectors.inventoryList.appendChild(li);
+      fragment.appendChild(listItem);
     });
   }
-  updateSummary(list);
-  selectors.inventoryList.querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', handleListAction);
+  domSelectors.inventoryListElement.appendChild(fragment);
+  updateSummary(filteredInventory);
+}
+
+// Filtra el inventario según el término de búsqueda y la categoría seleccionada
+function getFilteredInventory() {
+  const searchTerm = domSelectors.searchInput.value.trim().toLowerCase();
+  const selectedCategory = domSelectors.categoryFilter.value;
+  if (!searchTerm && !selectedCategory) return inventoryList;
+  return inventoryList.filter(inventoryItem => {
+    return (!searchTerm || inventoryItem.name.toLowerCase().includes(searchTerm) || inventoryItem.category.toLowerCase().includes(searchTerm)) &&
+      (!selectedCategory || inventoryItem.category === selectedCategory);
   });
 }
 
-// Maneja acciones de la lista (editar/eliminar)
-function handleListAction(e) {
-  const btn = e.currentTarget;
-  const action = btn.dataset.action;
-  const id = Number(btn.dataset.id);
+// Actualiza el resumen de cantidad y valor total en el DOM
+function updateSummary(filteredInventory) {
+  const totalQuantity = filteredInventory.reduce((sum, inventoryItem) => sum + inventoryItem.quantity, 0);
+  const totalInventoryValue = filteredInventory.reduce((sum, inventoryItem) => sum + (inventoryItem.quantity * inventoryItem.price), 0);
+  domSelectors.totalItemsLabel.textContent = `${totalQuantity} unidades`;
+  domSelectors.totalValueLabel.textContent = `Total: ${mxnCurrencyFormatter.format(totalInventoryValue)}`;
+}
+
+// Eventos para limpiar errores de inputs en tiempo real
+Object.values(domSelectors.inputs).forEach(inputElement => {
+  if (inputElement) {
+    inputElement.addEventListener('input', () => inputElement.classList.remove('input-error'));
+  }
+});
+
+// Delegación de eventos para botones de editar y eliminar
+domSelectors.inventoryListElement.addEventListener('click', (event) => {
+  const clickedButton = event.target.closest('button');
+  if (!clickedButton) return;
+  const { action, id } = clickedButton.dataset;
+  const clickedItemId = Number(id);
+
   if (action === 'edit') {
-    populateFormForEdit(id);
-    selectors.formSection.scrollIntoView({ behavior: 'smooth' });
-    highlightForm();
+    populateFormForEdit(clickedItemId);
+    domSelectors.formSection.scrollIntoView({ behavior: 'smooth' });
   } else if (action === 'delete') {
-    if (confirm('¿Eliminar este ítem? Esta acción no se puede deshacer.')) {
-      inventory = inventory.filter(i => i.id !== id);
-      saveInventory(inventory);
-      renderInventory(applyCurrentFiltersTo(inventory));
-      showToast('Ítem eliminado.');
+    if (confirm('¿Eliminar este ítem?')) {
+      inventoryList = inventoryList.filter(inventoryItem => inventoryItem.id !== clickedItemId);
+      saveAndRender();
+      showToast('Ítem eliminado');
     }
   }
-}
+});
 
-// Llena formulario para editar
-function populateFormForEdit(id) {
-  const item = inventory.find(i => i.id === id);
-  if (!item) return;
-  selectors.itemId.value = item.id;
-  selectors.itemForm.name.value = item.name;
-  selectors.itemForm.category.value = item.category;
-  selectors.itemForm.quantity.value = item.quantity;
-  selectors.itemForm.price.value = item.price;
-  selectors.itemForm.supplierEmail.value = item.supplierEmail || '';
-  selectors.itemForm.dateIn.value = item.dateIn;
-}
+// Evento de submit del formulario de ítem
+domSelectors.itemForm.addEventListener('submit', (event) => {
+  event.preventDefault();
 
-// Filtros
-function applyFilters() {
-  const q = selectors.search.value.trim().toLowerCase();
-  const cat = selectors.filterCategory.value;
-  const filtered = inventory.filter(i => {
-    const matchesQ = i.name.toLowerCase().includes(q) || (i.category && i.category.toLowerCase().includes(q));
-    const matchesCat = !cat || i.category === cat;
-    return matchesQ && matchesCat;
+  if (!validateForm()) {
+    showToast('Corrige los campos marcados en rojo.');
+    return;
+  }
+
+  const formValues = {
+    name: domSelectors.inputs.name.value.trim(),
+    category: domSelectors.inputs.category.value,
+    quantity: Number(domSelectors.inputs.quantity.value),
+    price: Number(domSelectors.inputs.price.value),
+    supplierEmail: domSelectors.inputs.supplierEmail.value.trim(),
+    dateIn: domSelectors.inputs.dateIn.value
+  };
+
+  const itemIdValue = domSelectors.itemIdInput.value;
+
+  if (itemIdValue) {
+    const itemId = Number(itemIdValue);
+    const itemIndex = inventoryList.findIndex(inventoryItem => inventoryItem.id === itemId);
+    if (itemIndex !== -1) inventoryList[itemIndex] = { id: itemId, ...formValues };
+    showToast('Ítem actualizado');
+  } else {
+    const newItemId = inventoryList.length ? Math.max(...inventoryList.map(inventoryItem => inventoryItem.id)) + 1 : 1;
+    inventoryList.push({ id: newItemId, ...formValues });
+    showToast('Ítem agregado');
+  }
+
+  saveAndRender();
+  resetForm();
+});
+
+domSelectors.resetBtn.addEventListener('click', resetForm);
+domSelectors.searchInput.addEventListener('input', renderInventory);
+domSelectors.categoryFilter.addEventListener('change', renderInventory);
+
+// Valida los campos del formulario
+function validateForm() {
+  let isValid = true;
+  const formFields = [
+    domSelectors.inputs.name, domSelectors.inputs.category,
+    domSelectors.inputs.quantity, domSelectors.inputs.price,
+    domSelectors.inputs.supplierEmail, domSelectors.inputs.dateIn
+  ];
+
+  formFields.forEach(field => {
+    field.classList.remove('input-error');
+    const fieldValue = field.value.trim();
+    let hasError = false;
+
+    if (!fieldValue) hasError = true;
+    if (field.type === 'number' && (fieldValue === '' || Number(fieldValue) < 0)) hasError = true;
+
+    if (hasError) {
+      field.classList.add('input-error');
+      isValid = false;
+    }
   });
-  renderInventory(filtered);
+  return isValid;
 }
 
-function applyCurrentFiltersTo(list) {
-  const q = selectors.search.value.trim().toLowerCase();
-  const cat = selectors.filterCategory.value;
-  return list.filter(i => {
-    const matchesQ = i.name.toLowerCase().includes(q) || (i.category && i.category.toLowerCase().includes(q));
-    const matchesCat = !cat || i.category === cat;
-    return matchesQ && matchesCat;
+// Limpia el formulario y los errores visuales
+function resetForm() {
+  domSelectors.itemForm.reset();
+  domSelectors.itemIdInput.value = '';
+  document.querySelectorAll('.input-error').forEach(element => {
+    element.classList.remove('input-error');
   });
 }
 
-// Resumen
-function updateSummary(list) {
-  const totalItems = list.reduce((s, it) => s + it.quantity, 0);
-  const totalValue = list.reduce((s, it) => s + (it.quantity * it.price), 0);
-  selectors.totalItems.textContent = `${totalItems} MXM`;
-  selectors.totalValue.textContent = `Valor total: $${formatNumber(totalValue)}`;
+// Llena el formulario con los datos de un ítem para editar
+function populateFormForEdit(itemId) {
+  resetForm();
+  const inventoryItem = inventoryList.find(inventoryItem => inventoryItem.id === itemId);
+  if (!inventoryItem) return;
+
+  domSelectors.itemIdInput.value = inventoryItem.id;
+  domSelectors.inputs.name.value = inventoryItem.name;
+  domSelectors.inputs.category.value = inventoryItem.category;
+  domSelectors.inputs.quantity.value = inventoryItem.quantity;
+  domSelectors.inputs.price.value = inventoryItem.price;
+  domSelectors.inputs.supplierEmail.value = inventoryItem.supplierEmail || '';
+  domSelectors.inputs.dateIn.value = inventoryItem.dateIn;
 }
 
-// Pequeño efecto visual al abrir formulario
-function highlightForm() {
-  selectors.formSection.style.transition = 'box-shadow 200ms ease';
-  selectors.formSection.style.boxShadow = '0 4px 18px rgba(11,92,255,0.18)';
-  setTimeout(() => selectors.formSection.style.boxShadow = '', 800);
+// Guarda el inventario y lo renderiza
+function saveAndRender() {
+  saveInventory(inventoryList);
+  renderInventory();
 }
 
-// Mensajes simples (se puede mejorar con UI de toast)
-function showToast(msg) {
-  console.log(msg);
-}
-
-// Helpers
-function formatNumber(n) {
-  return Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+// Escapa caracteres especiales en texto HTML
 function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+  if (!text) return '';
+  return text.replace(/[&<>"']/g, match => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[match]));
 }
 
-// Sincronización inicial con posibles filtros actuales
-renderInventory(applyCurrentFiltersTo(inventory));
+// Muestra un mensaje en consola (puedes implementar alerta visual)
+function showToast(message) {
+  console.log('Sistema:', message);
+}
+
+// Retorna la semilla inicial del inventario
+function getInitialSeed() {
+  return [
+    { id: 1, name: "Auriculares Bluetooth", category: "Electrónica", quantity: 12, price: 499.00, supplierEmail: "ventas@ejemplo.com", dateIn: "2025-11-01" },
+    { id: 2, name: "Camiseta de algodón", category: "Ropa", quantity: 35, price: 199.99, supplierEmail: "proveedor@moda.com", dateIn: "2025-10-20" },
+    { id: 3, name: "Mouse inalámbrico", category: "Electrónica", quantity: 20, price: 289.50, supplierEmail: "tech@distribuidor.com", dateIn: "2025-10-15" },
+    { id: 4, name: "Teclado mecánico RGB", category: "Electrónica", quantity: 8, price: 1399.00, supplierEmail: "contacto@hardwaremx.com", dateIn: "2025-10-10" },
+    { id: 5, name: "Pants deportivos", category: "Ropa", quantity: 18, price: 350.00, supplierEmail: "ventas@ropaactiva.com", dateIn: "2025-09-30" },
+    { id: 6, name: "Botella térmica 750ml", category: "Hogar", quantity: 42, price: 159.00, supplierEmail: "", dateIn: "2025-09-25" },
+    { id: 7, name: "Silla ergonómica", category: "Oficina", quantity: 5, price: 1899.99, supplierEmail: "oficinas@comfort.com", dateIn: "2025-09-18" },
+    { id: 8, name: "Cargador USB-C 30W", category: "Electrónica", quantity: 30, price: 249.00, supplierEmail: "power@techsupplier.com", dateIn: "2025-09-10" },
+    { id: 9, name: "Zapatillas running", category: "Ropa", quantity: 16, price: 899.00, supplierEmail: "ventas@deportivostore.com", dateIn: "2025-09-05" },
+    { id: 10, name: "Velas aromáticas", category: "Hogar", quantity: 25, price: 129.90, supplierEmail: "", dateIn: "2025-08-30" },
+    { id: 11, name: "Cuaderno profesional 100 hojas", category: "Oficina", quantity: 40, price: 59.50, supplierEmail: "papeleria@mx.com", dateIn: "2025-08-25" },
+    { id: 12, name: "Sudadera con capucha", category: "Ropa", quantity: 22, price: 499.00, supplierEmail: "proveedor@moda.com", dateIn: "2025-08-15" },
+    { id: 13, name: "Lámpara LED escritorio", category: "Hogar", quantity: 10, price: 329.00, supplierEmail: "iluminacion@hogar.com", dateIn: "2025-08-10" },
+    { id: 14, name: "Paquete de plumas negras (12 pzas)", category: "Oficina", quantity: 60, price: 89.00, supplierEmail: "", dateIn: "2025-07-28" },
+    { id: 15, name: "Power Bank 10,000 mAh", category: "Electrónica", quantity: 14, price: 699.00, supplierEmail: "ventas@techplus.com", dateIn: "2025-07-20" }
+  ];
+}
+
+// Inicializa la renderización del inventario
+renderInventory();

@@ -1,11 +1,15 @@
 <!doctype html>
 <html lang="es">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="Sistema de gestión de inventario simple y rápido.">
   <title>Inventario Fácil</title>
   <link rel="stylesheet" href="style.css" />
+  <script src="app.js" defer></script>
 </head>
+
 <body>
   <header>
     <div class="container header-inner">
@@ -19,7 +23,7 @@
         <input type="hidden" id="item-id" />
         <label>
           Nombre
-          <input type="text" id="name" name="name" required maxlength="100" />
+          <input type="text" id="name" name="name" required maxlength="100" autocomplete="off" />
         </label>
         <label>
           Categoría
@@ -28,6 +32,7 @@
             <option>Electrónica</option>
             <option>Ropa</option>
             <option>Hogar</option>
+            <option>Oficina</option>
             <option>Otros</option>
           </select>
         </label>
@@ -41,7 +46,7 @@
         </label>
         <label>
           Proveedor (email)
-          <input type="email" id="supplierEmail" name="supplierEmail" required/>
+          <input type="email" id="supplierEmail" name="supplierEmail" required />
         </label>
         <label>
           Fecha de entrada
@@ -57,12 +62,13 @@
     <section id="list-section" aria-labelledby="list-title">
       <div class="list-controls">
         <div class="search-group">
-          <input type="search" id="search" placeholder="Buscar por nombre..." />
-          <select id="filter-category">
+          <input type="search" id="search" placeholder="Buscar por nombre..." aria-label="Buscar items" />
+          <select id="filter-category" aria-label="Filtrar por categoría">
             <option value="">Todas las categorías</option>
             <option>Electrónica</option>
             <option>Ropa</option>
             <option>Hogar</option>
+            <option>Oficina</option>
             <option>Otros</option>
           </select>
         </div>
@@ -81,9 +87,7 @@
       <small>Inventario Empresa Ficticia — Proyecto demo · 2025</small>
     </div>
   </footer>
-
-  <script src="app.js"></script>
 </body>
-</html>
 
+</html>
 <!--IACD-->
