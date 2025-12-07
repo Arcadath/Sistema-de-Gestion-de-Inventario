@@ -1,4 +1,4 @@
-// session.js
+// auth-guard.js
 // Importamos la inicialización del inventario
 import { initInventory } from './inv.js'; 
 import { auth } from './firebase-init.js';
